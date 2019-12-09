@@ -17,7 +17,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestFind(t *testing.T) {
+func TestGetString(t *testing.T) {
+	y := `mode: ${MODE}
+password: ${PASSWORD}`
+	c, err := Decode([]byte(y))
+	if err != nil {
+		t.Fatalf("Decoding testing yaml failed: %v", err)
+	}
+
+	assert.Equal(t, "", c.GetString("mode"), "${MODE} not expected")
+	assert.Equal(t, PASSWORD, c.GetString("password"), "${PASSWORD} not expected")
+}
+
+func TestLookup(t *testing.T) {
 	y := `version: 1.0.0
 
 string: test string
@@ -65,7 +77,7 @@ object:
 	}
 
 	for _, test := range tests {
-		v, ok := c.Find(test.key)
+		v, ok := c.Lookup(test.key)
 		assert.Equalf(t, test.ok, ok, "key %s okay: want %t, got %t", test.key, test.ok, ok)
 		assert.Equalf(t, test.exp, v, "key %s value: want %v, got %v", test.key, test.exp, v)
 	}
@@ -107,7 +119,7 @@ func TestDecode(t *testing.T) {
 		}
 
 		for i, key := range test.keys {
-			jv, ok := cj.Find(key)
+			jv, ok := cj.Lookup(key)
 			if !ok {
 				t.Errorf("key %s not found", key)
 			}
@@ -120,60 +132,10 @@ func TestDecode(t *testing.T) {
 					test.json)
 			}
 
-			yv, ok := cy.Find(key)
+			yv, ok := cy.Lookup(key)
 			if !ok {
 				t.Errorf("key %s not found", key)
 			}
-			if yv != test.exps[i] {
-				t.Errorf("Expectation unmet: want %v(%T) got %v(%T)\nYAML: %s",
-					test.exps[i],
-					test.exps[i],
-					yv,
-					yv,
-					test.yaml)
-			}
-		}
-	}
-}
-
-func TestGetEnv(t *testing.T) {
-	var tests = []struct {
-		yaml string
-		json string
-		keys []string
-		exps []string
-	}{
-		{
-			yaml: `password: ${PASSWORD}`,
-			json: `{"password":"${PASSWORD}"}`,
-			keys: []string{`password`},
-			exps: []string{PASSWORD},
-		},
-	}
-	for _, test := range tests {
-		cj, err := Decode([]byte(test.json))
-		if err != nil {
-			t.Errorf("Decoding %s failed: %s", test.json, err)
-			continue
-		}
-		cy, err := Decode([]byte(test.yaml))
-		if err != nil {
-			t.Errorf("Decode %s failed: %s", test.yaml, err)
-			continue
-		}
-
-		for i, key := range test.keys {
-			jv := cj.GetEnv(key)
-			if jv != test.exps[i] {
-				t.Errorf("Expectation unmet: want %v(%T) got %v(%T)\nJSON: %s",
-					test.exps[i],
-					test.exps[i],
-					jv,
-					jv,
-					test.json)
-			}
-
-			yv := cy.GetEnv(key)
 			if yv != test.exps[i] {
 				t.Errorf("Expectation unmet: want %v(%T) got %v(%T)\nYAML: %s",
 					test.exps[i],

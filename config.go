@@ -56,15 +56,15 @@ func Decode(b []byte) (*Config, error) {
 
 //GetString ...
 func (c Config) GetString(key string) string {
-	if v, ok := c.Find(key); ok {
-		return v.(string)
+	if v, ok := c.Lookup(key); ok {
+		return os.ExpandEnv(v.(string))
 	}
 	return ""
 }
 
 //GetInt64 ...
 func (c Config) GetInt64(key string) int64 {
-	if v, ok := c.Find(key); ok {
+	if v, ok := c.Lookup(key); ok {
 		return v.(int64)
 	}
 	return 0
@@ -72,7 +72,7 @@ func (c Config) GetInt64(key string) int64 {
 
 //GetFloat64 returns a float64 value by key
 func (c Config) GetFloat64(key string) float64 {
-	if v, ok := c.Find(key); ok {
+	if v, ok := c.Lookup(key); ok {
 		return v.(float64)
 	}
 	return 0.0
@@ -80,29 +80,14 @@ func (c Config) GetFloat64(key string) float64 {
 
 //GetBool returns a bool value under key
 func (c Config) GetBool(key string) bool {
-	if v, ok := c.Find(key); ok {
+	if v, ok := c.Lookup(key); ok {
 		return v.(bool)
 	}
 	return false
 }
 
-//GetEnv returns a environment variable with name under key
-func (c *Config) GetEnv(key string) string {
-	if v, ok := c.Find(key); ok {
-		vn := v.(string)
-		if vn[0] == '$' {
-			vn = vn[1:]
-		}
-		if vn[0] == '{' && vn[len(vn)-1] == '}' {
-			vn = vn[1 : len(vn)-1]
-		}
-		return os.Getenv(vn)
-	}
-	return ""
-}
-
-//Find a value from Config with a key (. separated string)
-func (c Config) Find(key string) (interface{}, bool) {
+//Lookup a value from Config with a key (. separated string)
+func (c Config) Lookup(key string) (interface{}, bool) {
 	keys, _ := tokenizeString(key, '.', '\\') // if key ends with \, just ignore
 
 	var mp = c.mp
