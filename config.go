@@ -26,78 +26,94 @@ type Config struct {
 }
 
 //Load ...
-func Load(filename string) *Config {
+func Load(filename string) (*Config, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	var c *Config
 	if regexp.MustCompile(`(?i:\.json|\.ya?ml)$`).MatchString(filename) {
-		c = Decode(content)
+		c, err = Decode(content)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		panic(errors.New("unsupported file type: " + path.Ext(filename)))
+		return nil, errors.New("unsupported file type: " + path.Ext(filename))
 	}
-	return c
+
+	return c, nil
 }
 
 //Decode ...
-func Decode(b []byte) *Config {
+func Decode(b []byte) (*Config, error) {
 	c := new(Config)
 	if err := yaml.Unmarshal(b, &c.mp); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return c
+	return c, nil
 }
 
 //GetString ...
 func (c Config) GetString(key string) string {
-	return c.Get(key).(string)
+	if v, ok := c.Find(key); ok {
+		return v.(string)
+	}
+	return ""
 }
 
 //GetInt64 ...
 func (c Config) GetInt64(key string) int64 {
-	return c.Get(key).(int64)
+	if v, ok := c.Find(key); ok {
+		return v.(int64)
+	}
+	return 0
 }
 
 //GetFloat64 returns a float64 value by key
 func (c Config) GetFloat64(key string) float64 {
-	return c.Get(key).(float64)
+	if v, ok := c.Find(key); ok {
+		return v.(float64)
+	}
+	return 0.0
 }
 
 //GetBool returns a bool value under key
 func (c Config) GetBool(key string) bool {
-	return c.Get(key).(bool)
+	if v, ok := c.Find(key); ok {
+		return v.(bool)
+	}
+	return false
 }
 
 //GetEnv returns a environment variable with name under key
-func (c Config) GetEnv(key string) string {
-	vn := c.GetString(key)
-	if vn[0] == '$' {
-		vn = vn[1:]
+func (c *Config) GetEnv(key string) string {
+	if v, ok := c.Find(key); ok {
+		vn := v.(string)
+		if vn[0] == '$' {
+			vn = vn[1:]
+		}
+		if vn[0] == '{' && vn[len(vn)-1] == '}' {
+			vn = vn[1 : len(vn)-1]
+		}
+		return os.Getenv(vn)
 	}
-	if vn[0] == '{' && vn[len(vn)-1] == '}' {
-		vn = vn[1 : len(vn)-1]
-	}
-	return os.Getenv(vn)
+	return ""
 }
 
-//Get a value from Config by key (a . separated string)
-func (c Config) Get(key string) interface{} {
-	keys, err := tokenizeString(key, '.', '\\')
-	if err != nil {
-		panic(err)
-	}
+//Find a value from Config with a key (. separated string)
+func (c Config) Find(key string) (interface{}, bool) {
+	keys, _ := tokenizeString(key, '.', '\\') // if key ends with \, just ignore
 
 	var mp = c.mp
 	for _, ky := range keys {
 		val, ok := mp[ky]
 		if !ok {
-			return val
+			return nil, false
 		}
 
 		if reflect.TypeOf(val).Kind() != reflect.Map {
-			return val
+			return val, true
 		}
 		if m, ok := val.(map[string]interface{}); ok {
 			mp = m
@@ -111,7 +127,7 @@ func (c Config) Get(key string) interface{} {
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
 //GetenvOr get an environment variable or returns the default value
