@@ -114,6 +114,14 @@ func (c Config) Get(key string) interface{} {
 	return nil
 }
 
+//GetenvOr get an environment variable or returns the default value
+func GetenvOr(key, defaultVal string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return defaultVal
+}
+
 func tokenizeString(s string, sep, escape rune) (tokens []string, err error) {
 	var runes []rune
 	inEscape := false
